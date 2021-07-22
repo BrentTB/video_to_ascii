@@ -10,12 +10,15 @@ white = [255, 255, 255]
 
 
 show_message = True
-save_img = False
+save_img = True
 
 
 def main():
 
-    video("celeste.mp4", "ionfofaee", 5, 5)  # 5 5
+    # img = Image.open("3x OS.png")
+    # image(img, 0, 5)
+
+    video("celeste.mp4", "test", 5, 5)
 
     # best if frame_reduction is a divisor of fps (or close to a divisor, aka, fps % frame_reduction should be minimised)
 
@@ -29,15 +32,15 @@ def video(vid, new_file_name, pixel_reduction, frame_reduction=-1):
 
     1 in every pixel_reduction*2 horizontal pixels are used, and 1 in every pixel_reduction vertical pixels are used'''
 
-    new_file_name = new_file_name+".mp4"
+    new_file_name = "media/"+new_file_name+".mp4"
+    vid = "media/" + vid
 
     img_array = []
 
-    if(1 == 1):  # to use already made images, use this (have to manually change repeat length)
-        # fix this
+    if(1 == 2):  # to use already made images, use this (have to manually change repeat length)
         
         for i in range(620):
-            imgTmp = Image.open(f"ZZtemp-celeste/frame{i}.png")
+            imgTmp = Image.open(f"Z-temp/frame{i}.png")
             img_array.append(imgTmp)
     
         make_vid(vid, new_file_name, img_array, 6)
@@ -45,6 +48,7 @@ def video(vid, new_file_name, pixel_reduction, frame_reduction=-1):
 
     vidcap = cv2.VideoCapture(vid)
     fps = vidcap.get(cv2.CAP_PROP_FPS)
+    print(fps)
 
     if(frame_reduction == -1):
         frame_reduction = round(fps/4)
@@ -53,13 +57,6 @@ def video(vid, new_file_name, pixel_reduction, frame_reduction=-1):
     count, tmpC = 0, 0
 
     data = Image.fromarray(img)
-
-    # while success:
-    #     tmpC += frame_reduction
-    #     count += 1
-    #     data = Image.fromarray(img)
-    #     img_array.append(image(data, count, pixel_reduction))
-    #     success, img = vidcap.retrieve(img, tmpC)
 
     img_array.append(image(data, count, pixel_reduction))
     while success:
@@ -111,7 +108,7 @@ def add_audio(old_file_name, new_file_name):
     '''Takes in the name of the old and new files, extrcats the audio from the old file, and adds it to the new file'''
 
     if(show_message):
-        print("Starting to extraxt audio")
+        print("Starting to extract audio")
 
 
     old_video = mp.VideoFileClip(rf"{old_file_name}")
@@ -143,14 +140,6 @@ def make_grayscale(image, reduction_factor):
     '''Takes in image data as well as a reduction factor
 
     Returns a list of the grayscale data of the image, as well as the new images width and height'''
-
-    size_mod = reduction_factor
-
-    # tmp_pixel = list(image.getdata())
-    # pix_val_help = []
-
-    # for pixel in tmp_pixel:
-    #     pix_val_help.append((pixel[0]+pixel[1]+pixel[2])/3)
 
     # converts the image to grayscale
     pix_val_help = list(image.convert('L').getdata())
@@ -212,35 +201,41 @@ def conv_frame(txt, w, h, index, size=-1):
 
     Returns an image with the inputted text'''
 
-    img = Image.new('RGB', (w*10, h*19), color=(255, 255, 255))
+
+# w*10, h*19
+
+# 16
+    img = Image.new('RGB', (w*20, h*35), color=(255, 255, 255))
 
     d = ImageDraw.Draw(img)
 
-    fnt = ImageFont.truetype("/System/Library/Fonts//Menlo.ttc", 16)
+    fnt = ImageFont.truetype("/System/Library/Fonts//Menlo.ttc", 33)
     d.multiline_text((0, 0), txt, fill=(0, 0, 0), font=fnt)
 
-    # if(size!=-1):
-    #     img = img.resize(size, Image.ANTIALIAS) # image files are too large, and the resuling mp4 was way too big
+    if(size!=-1):
+        img = img.resize(size, Image.ANTIALIAS) # image files are too large, and the resuling mp4 was way too big
+
+    # img.show()
 
     if(save_img):
-        img.save(f'ZZtemp/frame{index}.png')
+        img.save(f'Z-temp/frame{index}.png')
     if(show_message):
         print(f"frame {index} done")
 
     return img
 
+    # 10-19-16
+    # 20-35-33 -> using
+    # 24-42-40
+
 
 if __name__ == "__main__":
     main()
-
-    # img = Image.open("loki4.jpg")
-    # img = Image.open("demon.jpg")
-    # img = Image.open("blk.jpg")
-    # image(img, 0, 4)
 
 
 # TODO: lower the quality of the images, the resulting files are too big - this is making files larger?
 # TODO: bet the total frames that are to be done at the beginning, so that the user knows how far along it is
 # TODO: make the program more efficient?
 # TODO: get the characters to use by making code to count black pixels and see which is the smallest
-# TODO: push to Github
+# TODO: if Temp file doesnt exist, create it
+# TODO: make the temp file names random, instead of just a random looking string
