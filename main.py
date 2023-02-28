@@ -8,19 +8,32 @@ import os
 black = [0, 0, 0]
 white = [255, 255, 255]
 
-
 show_message = True
 save_img = True
+reduce_img = False
 
+mediaFolder = "media" # media
+VideoTempFolder = "Z-temp"
 
 def main():
 
-    # img = Image.open("3x OS.png")
-    # image(img, 0, 5)
+    # for i in range(1,15):
+    #     makeImage(f"pic{i}.jpeg", f"pic{i}Ascii", 2)
 
-    video("celeste.mp4", "test", 5, 5)
+    makeImage("testPic1.png", "testPic1Ascii", 1)
+
+    # video("loki2.mp4", "test2", 15, 5)
 
     # best if frame_reduction is a divisor of fps (or close to a divisor, aka, fps % frame_reduction should be minimised)
+
+def makeImage(fileName, newName, pixel_reduction):
+    ''' The old file name (Assumed to be in the 'media' folder), enter with extention 
+
+    The new name, not inclusing extention
+
+    1 in every pixel_reduction*2 horizontal pixels are used, and 1 in every pixel_reduction vertical pixels are used'''
+    img = Image.open(f"{mediaFolder}/{fileName}")
+    image(img, 0, pixel_reduction, 0, newName)
 
 
 def video(vid, new_file_name, pixel_reduction, frame_reduction=-1):
@@ -28,48 +41,53 @@ def video(vid, new_file_name, pixel_reduction, frame_reduction=-1):
 
     The new name should not include '.mp4' or any other file type
 
-    1 in every frame_reduction frames are turnt into an image. Leave blank for 4fps final video
+    1 in every pixel_reduction*2 horizontal pixels are used, and 1 in every pixel_reduction vertical pixels are used
 
-    1 in every pixel_reduction*2 horizontal pixels are used, and 1 in every pixel_reduction vertical pixels are used'''
+    1 in every frame_reduction frames are turnt into an image. Leave blank for 4fps final video'''
 
-    new_file_name = "media/"+new_file_name+".mp4"
-    vid = "media/" + vid
+    new_file_name = mediaFolder+"/"+new_file_name+".mp4"
+    vid = mediaFolder+"/" + vid
 
     img_array = []
 
     if(1 == 2):  # to use already made images, use this (have to manually change repeat length)
-        
+
         for i in range(620):
-            imgTmp = Image.open(f"Z-temp/frame{i}.png")
+            imgTmp = Image.open(f"{VideoTempFolder}/frame{i}.png")
             img_array.append(imgTmp)
-    
+
         make_vid(vid, new_file_name, img_array, 6)
         return
 
     vidcap = cv2.VideoCapture(vid)
     fps = vidcap.get(cv2.CAP_PROP_FPS)
-    print(fps)
+    print("The origional video is", fps, "fps")
 
     if(frame_reduction == -1):
         frame_reduction = round(fps/4)
+
+    total_frames = math.floor(vidcap.get(
+        cv2.CAP_PROP_FRAME_COUNT) / frame_reduction)
+
+    # print("The amount of frames to be pocessed is", total_frames, '\n')
 
     success, img = vidcap.read()
     count, tmpC = 0, 0
 
     data = Image.fromarray(img)
 
-    img_array.append(image(data, count, pixel_reduction))
+    img_array.append(image(data, count, pixel_reduction, total_frames))
     while success:
         tmpC += 1
         if(tmpC % frame_reduction == 0):
             count += 1
             data = Image.fromarray(img)
-            img_array.append(image(data, count, pixel_reduction))
+            img_array.append(image(data, count, pixel_reduction, total_frames))
         success, img = vidcap.read()
 
     vidcap.release()
 
-    frame_rate = round(fps / frame_reduction)
+    frame_rate = fps / frame_reduction
 
     make_vid(vid, new_file_name, img_array, frame_rate)
 
@@ -88,14 +106,16 @@ def make_vid(old_file_name, new_file_name, img_array, frame_rate=4):
     size = (width, height)
 
     out = cv2.VideoWriter("tempVideo-sdvyjkl01h35f9.mp4",
-        cv2.VideoWriter_fourcc(*'mp4v'), frame_rate, size)
+                          cv2.VideoWriter_fourcc(*'mp4v'), frame_rate, size)
 
     for i in range(len(img_array)):
+
         if (i % 50 == 0 and show_message):
             print(f"frame {i} processed")
 
         data = np.asarray(img_array[i])
         out.write(data)
+
     out.release()
 
     if(show_message):
@@ -110,14 +130,12 @@ def add_audio(old_file_name, new_file_name):
     if(show_message):
         print("Starting to extract audio")
 
-
     old_video = mp.VideoFileClip(rf"{old_file_name}")
     old_video.audio.write_audiofile(r"tempAudio-qkcosjd64i21a9.mp3")
 
-    # see here must obviously change
-
     new_video = mp.VideoFileClip("tempVideo-sdvyjkl01h35f9.mp4")
-    new_video.write_videofile(new_file_name, audio="tempAudio-qkcosjd64i21a9.mp3")
+    new_video.write_videofile(
+        new_file_name, audio="tempAudio-qkcosjd64i21a9.mp3")
 
     os.remove("tempAudio-qkcosjd64i21a9.mp3")
     os.remove("tempVideo-sdvyjkl01h35f9.mp4")
@@ -126,14 +144,14 @@ def add_audio(old_file_name, new_file_name):
         print("Audio Extraction done")
 
 
-def image(image, index, reduction_factor):
+def image(image, index, reduction_factor, frames=0, newName=""):
     '''Takes an image, a reduction factor and a naming index
 
-    Returns an Askii image of the inputted image'''
+    Returns an Ascii image of the inputed image'''
     size = image.width, image.height
     data, w, h = make_grayscale(image, reduction_factor)
     txt = gray_to_text(data)
-    return conv_frame(txt, w, h, index, size)
+    return conv_frame(txt, w, h, index, frames, size, newName)
 
 
 def make_grayscale(image, reduction_factor):
@@ -195,16 +213,16 @@ def gray_to_text(gray):
     return txt
 
 
-def conv_frame(txt, w, h, index, size=-1):
+def conv_frame(txt, w, h, index, total, size=-1, newName=""):
     '''Takes the dimensions of an image and text, as well as an index number for naming the image and the pixel resolution
     the image should be saved to (leave empty to keep the size unchanged)
 
     Returns an image with the inputted text'''
 
+    if(show_message):
+        # print(f"frame {index} done", end ='\r')
+        print_percent_done(index, total)
 
-# w*10, h*19
-
-# 16
     img = Image.new('RGB', (w*20, h*35), color=(255, 255, 255))
 
     d = ImageDraw.Draw(img)
@@ -212,15 +230,16 @@ def conv_frame(txt, w, h, index, size=-1):
     fnt = ImageFont.truetype("/System/Library/Fonts//Menlo.ttc", 33)
     d.multiline_text((0, 0), txt, fill=(0, 0, 0), font=fnt)
 
-    if(size!=-1):
-        img = img.resize(size, Image.ANTIALIAS) # image files are too large, and the resuling mp4 was way too big
+    if(size != -1 and reduce_img):
+        # image files are too large, and the resuling mp4 was way too big
+        img = img.resize(size, Image.ANTIALIAS)
 
     # img.show()
 
-    if(save_img):
-        img.save(f'Z-temp/frame{index}.png')
-    if(show_message):
-        print(f"frame {index} done")
+    if(newName):
+        img.save(f'{mediaFolder}/{newName}.png')
+    elif(save_img):
+        img.save(f'{VideoTempFolder}/frame{index}.png')
 
     return img
 
@@ -229,13 +248,70 @@ def conv_frame(txt, w, h, index, size=-1):
     # 24-42-40
 
 
+def print_percent_done(index, total, bar_len=50, title='Please wait'):
+    '''
+    index is expected to be 0 based index. 
+    0 <= index < total
+    '''
+
+    index += 1
+    total += 1
+
+    percent_done = index/total*100
+    percent_done = round(percent_done, 1)
+
+    done = round(percent_done/(100/bar_len))
+    togo = bar_len-done
+
+    done_str = '█'*int(done)
+    togo_str = '░'*int(togo)
+
+    # test this so the user cant type in terminal
+    print(
+        f'\r-> Frame {index} of {total} is being processed\t⏳{title}: [{done_str}{togo_str}] {percent_done}% done   ', end='')
+
+    if round(percent_done) == 100:
+        print('\tFrame Processing Complete'+' '*150)
+
+
 if __name__ == "__main__":
     main()
 
+    '''
+    Call in a loop to create terminal progress bar
 
-# TODO: lower the quality of the images, the resulting files are too big - this is making files larger?
-# TODO: bet the total frames that are to be done at the beginning, so that the user knows how far along it is
-# TODO: make the program more efficient?
-# TODO: get the characters to use by making code to count black pixels and see which is the smallest
-# TODO: if Temp file doesnt exist, create it
-# TODO: make the temp file names random, instead of just a random looking string
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        length      - Optional  : character length of bar (Int)
+        fill        - Optional  : bar fill character (Str)
+        printEnd    - Optional  : end character (e.g. "\\r", "\\r\\n") (Str)
+    '''
+
+
+# # must test
+# class keyboardDisable():
+
+#     def start(self):
+#         self.on = True
+
+#     def stop(self):
+#         self.on = False
+
+#     def __call__(self):
+#         while self.on:
+#             msvcrt.getwch()
+
+
+#     def __init__(self):
+#         self.on = False
+#         import msvcrt
+
+# disable = keyboardDisable()
+# disable.start()
+
+
+# disable.stop()
