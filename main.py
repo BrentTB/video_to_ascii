@@ -14,11 +14,13 @@ reduce_img = False # reduce the quality of the images in the video
 mediaFolder = "media" # stores the videos
 VideoTempFolder = "Z-temp" # stores the images if save_img = True
 
+watermark = "Github:@BrentTB" # a watermark kep at the bottom of the video. Leave blank for nothing
+
 def main():
     type = 'v'
 
     if type == 'i':
-        pixel_reduction = 1  # one in every 'pixel_reduction' pixels are used
+        pixel_reduction = 2  # one in every 'pixel_reduction' pixels are used
         makeImage("testPic1.png", "testPic1Ascii", pixel_reduction)
     else:
         pixel_reduction = 15 # one in every 'pixel_reduction' pixels are used
@@ -213,12 +215,16 @@ def gray_to_text(gray):
 
     for row in gray:
         for element in row:
+
             for index, lim in enumerate(limit):
                 if(element < (index+1)*math.ceil(256/len(limit))):
                     txt += lim
                     break
+                
 
         txt += "\n"
+            
+    txt = txt[:len(txt)-len(watermark)-1]+watermark
 
     return txt
 
