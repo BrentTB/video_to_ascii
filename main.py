@@ -4,85 +4,105 @@ import numpy as np
 import cv2
 import moviepy.editor as mp
 import os
+import random
+import string
 
-black = [0, 0, 0]
-white = [255, 255, 255]
+show_message = True # sends messages as the code progresses
+save_img = True # save each individual image of the new video
+reduce_img = False # reduce the quality of the images in the video
 
-show_message = True
-save_img = True
-reduce_img = False
-
-mediaFolder = "media" # media
-VideoTempFolder = "Z-temp"
+mediaFolder = "media" # stores the videos
+VideoTempFolder = "Z-temp" # stores the images if save_img = True
 
 def main():
+    type = 'v'
 
-    # for i in range(1,15):
-    #     makeImage(f"pic{i}.jpeg", f"pic{i}Ascii", 2)
+    if type == 'i':
+        pixel_reduction = 1  # one in every 'pixel_reduction' pixels are used
+        makeImage("testPic1.png", "testPic1Ascii", pixel_reduction)
+    else:
+        pixel_reduction = 15 # one in every 'pixel_reduction' pixels are used
+        frame_reduction = 5 # one in every 'frame_reduction' frames are used
+        video("loki2.mp4", "asciiVideo", pixel_reduction, frame_reduction)
 
-    makeImage("testPic1.png", "testPic1Ascii", 1)
-
-    # video("loki2.mp4", "test2", 15, 5)
-
-    # best if frame_reduction is a divisor of fps (or close to a divisor, aka, fps % frame_reduction should be minimised)
+def makeRandomString():
+        characters = string.ascii_letters + string.digits
+        random_string = ''.join(random.choice(characters) for i in range(10))
+        return random_string
 
 def makeImage(fileName, newName, pixel_reduction):
-    ''' The old file name (Assumed to be in the 'media' folder), enter with extention 
+    ''' fileName: The old file name (Assumed to be in the 'media' folder) 
 
-    The new name, not inclusing extention
+    newName: The new name, not including an extention
 
-    1 in every pixel_reduction*2 horizontal pixels are used, and 1 in every pixel_reduction vertical pixels are used'''
+    pixel_reduction: 1 in every 'pixel_reduction'*2 horizontal pixels are used, and 1 in every 'pixel_reduction' vertical pixels are used'''
     img = Image.open(f"{mediaFolder}/{fileName}")
     image(img, 0, pixel_reduction, 0, newName)
 
+def videoFromImages(vid, new_file_name, frame_reduction=-1):
+    ''' Used when the images have been created already
 
-def video(vid, new_file_name, pixel_reduction, frame_reduction=-1):
-    '''Takes a video, and 2 reduction factors for the frame rate and pixels. Also takes in the new mp4 file name
+    vid: the file name of the video
 
-    The new name should not include '.mp4' or any other file type
+    new_file_name: the new video name without any extensions
+    
+    frame_reduction: 1 in every frame_reduction frames are turnt into an image. Leave blank for 4fps final video'''
 
-    1 in every pixel_reduction*2 horizontal pixels are used, and 1 in every pixel_reduction vertical pixels are used
-
-    1 in every frame_reduction frames are turnt into an image. Leave blank for 4fps final video'''
-
-    new_file_name = mediaFolder+"/"+new_file_name+".mp4"
     vid = mediaFolder+"/" + vid
-
-    img_array = []
-
-    if(1 == 2):  # to use already made images, use this (have to manually change repeat length)
-
-        for i in range(620):
-            imgTmp = Image.open(f"{VideoTempFolder}/frame{i}.png")
-            img_array.append(imgTmp)
-
-        make_vid(vid, new_file_name, img_array, 6)
-        return
-
     vidcap = cv2.VideoCapture(vid)
     fps = vidcap.get(cv2.CAP_PROP_FPS)
-    print("The origional video is", fps, "fps")
+    vidcap.release()
 
     if(frame_reduction == -1):
         frame_reduction = round(fps/4)
 
-    total_frames = math.floor(vidcap.get(
-        cv2.CAP_PROP_FRAME_COUNT) / frame_reduction)
+    img_array = []
+    i=0
+    
+    # find all the images that have been created
+    while(os.path.isfile(f"{VideoTempFolder}/frame{i}.png")):
+        imgTmp = Image.open(f"{VideoTempFolder}/frame{i}.png")
+        img_array.append(imgTmp)
+        i = i+1
 
-    # print("The amount of frames to be pocessed is", total_frames, '\n')
+    frameRate = fps / frame_reduction
+    make_vid(vid, new_file_name, img_array, frameRate)
+    return
+
+def video(vid, new_file_name, pixel_reduction, frame_reduction=-1):
+    '''vid: the file name of the video
+
+    new_file_name: the new video name without any extensions
+
+    pixel_reduction: 1 in every pixel_reduction*2 horizontal pixels are used, and 1 in every pixel_reduction vertical pixels are used
+
+    frame_reduction: 1 in every frame_reduction frames are turnt into an image. Leave blank for 4fps final video'''
+
+    new_file_name = mediaFolder+"/"+new_file_name+".mp4"
+    vid = mediaFolder+"/" + vid
+    img_array = []
+
+    vidcap = cv2.VideoCapture(vid)
+    fps = vidcap.get(cv2.CAP_PROP_FPS)
+    print("The original video is", fps, "fps")
+
+    if(frame_reduction == -1):
+        frame_reduction = round(fps/4)
+
+    total_frames = math.floor(vidcap.get(cv2.CAP_PROP_FRAME_COUNT) / frame_reduction)
 
     success, img = vidcap.read()
-    count, tmpC = 0, 0
+    imageOn, tmpC = 0, -1
 
     data = Image.fromarray(img)
 
-    img_array.append(image(data, count, pixel_reduction, total_frames))
+    # repeat until the video runs out of frames
     while success:
         tmpC += 1
         if(tmpC % frame_reduction == 0):
-            count += 1
             data = Image.fromarray(img)
-            img_array.append(image(data, count, pixel_reduction, total_frames))
+            img_array.append(image(data, imageOn, pixel_reduction, total_frames))
+            imageOn += 1
         success, img = vidcap.read()
 
     vidcap.release()
@@ -90,7 +110,6 @@ def video(vid, new_file_name, pixel_reduction, frame_reduction=-1):
     frame_rate = fps / frame_reduction
 
     make_vid(vid, new_file_name, img_array, frame_rate)
-
 
 def make_vid(old_file_name, new_file_name, img_array, frame_rate=4):
     '''Takes in a list of images, as well as the origional frame_reduction used (in order to edit the new framerate). Also takes in the new and old mp4 name
@@ -105,8 +124,8 @@ def make_vid(old_file_name, new_file_name, img_array, frame_rate=4):
 
     size = (width, height)
 
-    out = cv2.VideoWriter("tempVideo-sdvyjkl01h35f9.mp4",
-                          cv2.VideoWriter_fourcc(*'mp4v'), frame_rate, size)
+    tmpName = f"tempVideo-{makeRandomString()}.mp4"
+    out = cv2.VideoWriter(tmpName,cv2.VideoWriter_fourcc(*'mp4v'), frame_rate, size)
 
     for i in range(len(img_array)):
 
@@ -121,28 +140,28 @@ def make_vid(old_file_name, new_file_name, img_array, frame_rate=4):
     if(show_message):
         print("Done")
 
-    add_audio(old_file_name, new_file_name)
+    add_audio(old_file_name, new_file_name, tmpName)
 
-
-def add_audio(old_file_name, new_file_name):
-    '''Takes in the name of the old and new files, extrcats the audio from the old file, and adds it to the new file'''
+def add_audio(old_file_name, new_file_name, tmpName):
+    '''adds the audio from the original video to the created video'''
 
     if(show_message):
         print("Starting to extract audio")
 
-    old_video = mp.VideoFileClip(rf"{old_file_name}")
-    old_video.audio.write_audiofile(r"tempAudio-qkcosjd64i21a9.mp3")
+    tmpNameAudio = f"tempAudio-{makeRandomString()}.mp3"
 
-    new_video = mp.VideoFileClip("tempVideo-sdvyjkl01h35f9.mp4")
+    old_video = mp.VideoFileClip(f"{old_file_name}")
+    old_video.audio.write_audiofile(tmpNameAudio)
+
+    new_video = mp.VideoFileClip(tmpName)
     new_video.write_videofile(
-        new_file_name, audio="tempAudio-qkcosjd64i21a9.mp3")
+        new_file_name, audio=tmpNameAudio)
 
-    os.remove("tempAudio-qkcosjd64i21a9.mp3")
-    os.remove("tempVideo-sdvyjkl01h35f9.mp4")
+    os.remove(tmpNameAudio)
+    os.remove(tmpName)
 
     if(show_message):
         print("Audio Extraction done")
-
 
 def image(image, index, reduction_factor, frames=0, newName=""):
     '''Takes an image, a reduction factor and a naming index
@@ -152,7 +171,6 @@ def image(image, index, reduction_factor, frames=0, newName=""):
     data, w, h = make_grayscale(image, reduction_factor)
     txt = gray_to_text(data)
     return conv_frame(txt, w, h, index, frames, size, newName)
-
 
 def make_grayscale(image, reduction_factor):
     '''Takes in image data as well as a reduction factor
@@ -183,15 +201,7 @@ def make_grayscale(image, reduction_factor):
             sum = math.floor(sum/(2 * reduction_factor**2))
             pix_val[row].append(sum)
 
-    # Saves the grayscale image
-    if(1 == 2):
-        arry = np.array(pix_val)
-        img = Image.fromarray(arry.astype(np.uint8))
-        img.save('my.png')
-        img.show()
-
     return pix_val, w, h
-
 
 def gray_to_text(gray):
     '''Takes in a grayscale image as a list and converts each pixel into a letter
@@ -211,7 +221,6 @@ def gray_to_text(gray):
         txt += "\n"
 
     return txt
-
 
 def conv_frame(txt, w, h, index, total, size=-1, newName=""):
     '''Takes the dimensions of an image and text, as well as an index number for naming the image and the pixel resolution
@@ -243,11 +252,6 @@ def conv_frame(txt, w, h, index, total, size=-1, newName=""):
 
     return img
 
-    # 10-19-16
-    # 20-35-33 -> using
-    # 24-42-40
-
-
 def print_percent_done(index, total, bar_len=50, title='Please wait'):
     '''
     index is expected to be 0 based index. 
@@ -267,51 +271,14 @@ def print_percent_done(index, total, bar_len=50, title='Please wait'):
     togo_str = '░'*int(togo)
 
     # test this so the user cant type in terminal
-    print(
-        f'\r-> Frame {index} of {total} is being processed\t⏳{title}: [{done_str}{togo_str}] {percent_done}% done   ', end='')
+    print(f'\r-> Frame {index} of {total} is being processed\t⏳{title}: [{done_str}{togo_str}] {percent_done}% done   ', end='')
 
     if round(percent_done) == 100:
         print('\tFrame Processing Complete'+' '*150)
 
-
 if __name__ == "__main__":
     main()
 
-    '''
-    Call in a loop to create terminal progress bar
-
-    @params:
-        iteration   - Required  : current iteration (Int)
-        total       - Required  : total iterations (Int)
-        prefix      - Optional  : prefix string (Str)
-        suffix      - Optional  : suffix string (Str)
-        decimals    - Optional  : positive number of decimals in percent complete (Int)
-        length      - Optional  : character length of bar (Int)
-        fill        - Optional  : bar fill character (Str)
-        printEnd    - Optional  : end character (e.g. "\\r", "\\r\\n") (Str)
-    '''
-
-
-# # must test
-# class keyboardDisable():
-
-#     def start(self):
-#         self.on = True
-
-#     def stop(self):
-#         self.on = False
-
-#     def __call__(self):
-#         while self.on:
-#             msvcrt.getwch()
-
-
-#     def __init__(self):
-#         self.on = False
-#         import msvcrt
-
-# disable = keyboardDisable()
-# disable.start()
-
-
-# disable.stop()
+# TODO: 
+# make the program more efficient
+# add multiprocessing 
